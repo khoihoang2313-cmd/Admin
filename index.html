@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin • License Manager</title>
+<style>
+*{box-sizing:border-box;font-family:Segoe UI,sans-serif}body{margin:0;padding:20px;background:#0f0f1a;color:#eee}
+.card{max-width:800px;margin:30px auto;background:#17172a;border:1px solid #333;border-radius:18px;padding:25px}
+h1{text-align:center;color:#00d4ff}input,select,button{width:100%;padding:12px;margin-top:10px;border-radius:9px;border:1px solid #333;background:#10101d;color:#fff}
+button{background:linear-gradient(90deg,#00d4ff,#7b2ff7);border:0;font-weight:700;cursor:pointer}
+.danger{background:#d33}.item{padding:12px;margin-top:8px;background:#10101d;border:1px solid #292943;border-radius:10px}.code{color:#00d4ff;font-family:monospace}.ok{color:#00ff9d}.bad{color:#ff6b6b}
+.hidden{display:none}.msg{margin-top:10px;text-align:center;padding:10px}
+</style>
+</head>
+<body><div class="card">
+<div id="login">
+<h1>🛡️ ADMIN</h1><input id="adminKey" type="password" placeholder="Admin key">
+<button onclick="login()">Đăng nhập</button><div id="msg" class="msg"></div>
+</div>
+<div id="panel" class="hidden">
+<h1>⚙️ QUẢN LÝ KEY</h1>
+<input id="deviceId" placeholder="Device ID, ví dụ DEV-A1B2C3D4">
+<select id="duration"><option value="1">1 giờ</option><option value="12">12 giờ</option><option value="24">1 ngày</option><option value="168">7 ngày</option><option value="720">1 tháng</option><option value="0">Vĩnh viễn</option></select>
+<input id="qty" type="number" min="1" max="50" value="1">
+<button onclick="createKeys()">Tạo Key</button>
+<button onclick="loadKeys()">Tải danh sách</button>
+<button class="danger" onclick="clearKeys()">Xóa toàn bộ</button>
+<div id="list"></div>
+</div></div>
+<script>
+const API=location.origin+"/api";let token="";
+function show(t,c=""){msg.textContent=t;msg.className="msg "+c}
+async function login(){
+ const k=adminKey.value;
+ const r=await fetch(API+"/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adminKey:k})});
+ const d=await r.json(); if(!r.ok)return show(d.error||"Sai admin key","bad");
+ token=d.token;loginBox();loadKeys();
+}
+function loginBox(){document.getElementById("login").classList.add("hidden");document.getElementById("panel").classList.remove("hidden")}
+async function createKeys(){
+ const r=await fetch(API+"/admin/keys",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({deviceId:deviceId.value.trim().toUpperCase(),duration:Number(duration.value),qty:Number(qty.value)})});
+ const d=await r.json();if(!r.ok)return show(d.error,"bad");show("Đã tạo "+d.keys.length+" key","ok");loadKeys();
+}
+async function loadKeys(){
+ const r=await fetch(API+"/admin/keys",{headers:{Authorization:"Bearer "+token}});const d=await r.json();
+ list.innerHTML=d.keys.map(k=>`<div class="item"><span class="code">${k.code}</span><br>Thiết bị: ${k.deviceId}<br>${k.forever?"♾️ VĨNH VIỄN":new Date(k.expires).toLocaleString("vi-VN")}<br><button onclick="delKey('${k.code}')">Xóa</button></div>`).join("")||"<p>Chưa có key.</p>";
+}
+async function delKey(code){await fetch(API+"/admin/keys/"+encodeURIComponent(code),{method:"DELETE",headers:{Authorization:"Bearer "+token}});loadKeys()}
+async function clearKeys(){if(!confirm("Xóa toàn bộ key?"))return;await fetch(API+"/admin/keys",{method:"DELETE",headers:{Authorization:"Bearer "+token}});loadKeys()}
+</script></body></html>
